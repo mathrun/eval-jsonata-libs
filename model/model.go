@@ -9,21 +9,27 @@ type Test struct {
 }
 
 type TestCollection struct {
-	Tests []Test `json:"tests"`
+	Tests    []Test `json:"tests"`
+	FileName string `json:"-"`
 }
 
 type TestResult struct {
-	Test     Test  `json:"test"`
-	Duration int64 `json:"duration"`
-	Passed   bool  `json:"passed"`
-	Error    error `json:"error,omitempty"`
+	TestName string `json:"name"`
+	Duration int64  `json:"duration"`
+	Passed   bool   `json:"passed"`
+	Error    string `json:"error,omitempty"`
 }
 
-type TestSuiteResult struct {
+type TestCollectionResult struct {
+	File    string       `json:"file"`
 	Results []TestResult `json:"results"`
 }
 
+type TestSummary struct {
+	Results map[string][]TestCollectionResult `json:"results"`
+}
+
 type TestRunner interface {
-	RunTests(tests []Test) (TestSuiteResult, error)
+	RunTests(collection TestCollection) (TestCollectionResult, error)
 	Name() string
 }

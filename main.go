@@ -4,15 +4,28 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"time"
 
-	"cybus.io/jsonata/eval/model"
+	. "cybus.io/jsonata/eval/model"
 	blues "cybus.io/jsonata/eval/runner/blues"
 	xiatechs "cybus.io/jsonata/eval/runner/xiatechs"
 
 	"github.com/goccy/go-json"
 )
 
-func countPassed(results model.TestSuiteResult) int {
+func countAbsolutPassed(results []TestCollectionResult) int {
+	var count int
+	for _, collectionResult := range results {
+		for _, result := range collectionResult.Results {
+			if result.Passed {
+				count++
+			}
+		}
+	}
+	return count
+}
+
+func countPassed(results TestCollectionResult) int {
 	var count int
 	for _, result := range results.Results {
 		if result.Passed {
@@ -22,7 +35,17 @@ func countPassed(results model.TestSuiteResult) int {
 	return count
 }
 
-func calcTotalDuration(results model.TestSuiteResult) int64 {
+func calcAbsoluteDuration(results []TestCollectionResult) int64 {
+	var total int64
+	for _, collectionResult := range results {
+		for _, result := range collectionResult.Results {
+			total += result.Duration
+		}
+	}
+	return total
+}
+
+func calcTotalDuration(results TestCollectionResult) int64 {
 	var total int64
 	for _, result := range results.Results {
 		total += result.Duration
@@ -30,7 +53,31 @@ func calcTotalDuration(results model.TestSuiteResult) int64 {
 	return total
 }
 
-func printResults(runnerName string, results model.TestSuiteResult) {
+func countTotalTests(results []TestCollectionResult) int {
+	var count int
+	for _, collectionResult := range results {
+		count += len(collectionResult.Results)
+	}
+	return count
+}
+
+func printSummary(summary TestSummary) {
+	fmt.Println()
+	fmt.Println("==================================================")
+	fmt.Printf("                  Test Summary\n")
+	fmt.Println("==================================================")
+	fmt.Println()
+
+	for runnerName, collectionResults := range summary.Results {
+		fmt.Printf("Runner: %s\n", runnerName)
+		fmt.Printf("     Total Tests: %d\n", countTotalTests(collectionResults))
+		fmt.Printf("    Total Passed: %d\n", countAbsolutPassed(collectionResults))
+		fmt.Printf("  Total Duration: %d µs\n", calcAbsoluteDuration(collectionResults))
+		fmt.Println()
+	}
+}
+
+func printResults(runnerName string, results TestCollectionResult) {
 	fmt.Println()
 	fmt.Println("==================================================")
 	fmt.Printf("      %s\n", runnerName)
@@ -47,13 +94,13 @@ func printResults(runnerName string, results model.TestSuiteResult) {
 		if result.Passed {
 			status = "PASSED"
 		}
-		fmt.Printf("   Test: %s - %s (Duration: %d µs)\n", result.Test.Name, status, result.Duration)
+		fmt.Printf("   Test: %s - %s (Duration: %d µs)\n", result.TestName, status, result.Duration)
 	}
 	fmt.Println()
 }
 
-func loadTestsFromFile(filePath string) (model.TestCollection, error) {
-	var testCollection model.TestCollection
+func loadTestsFromFile(filePath string) (TestCollection, error) {
+	var testCollection TestCollection
 
 	fileBytes, err := os.ReadFile(filePath)
 	if err != nil {
@@ -64,47 +111,82 @@ func loadTestsFromFile(filePath string) (model.TestCollection, error) {
 	if err != nil {
 		return testCollection, err
 	}
+	testCollection.FileName = filePath
 
 	return testCollection, nil
 }
 
+func saveResultsToFile(results TestSummary) (string, error) {
+	folder := "./results"
+	if _, err := os.Stat(folder); os.IsNotExist(err) {
+		err = os.Mkdir(folder, 0755)
+		if err != nil {
+			return "", err
+		}
+	}
+	timestamp := time.Now().Format("20060102_150405")
+	fileName := fmt.Sprintf("%s/%s.json", folder, timestamp)
+
+	resultsBytes, err := json.MarshalIndent(results, "", "  ")
+	if err != nil {
+		return "", err
+	}
+
+	err = os.WriteFile(fileName, resultsBytes, 0644)
+	if err != nil {
+		return "", err
+	}
+
+	return fileName, nil
+}
+
 func main() {
 
-	var runners = []model.TestRunner{
+	var runners = []TestRunner{
 		&xiatechs.XiatechsRunner{},
 		&blues.BluesRunner{},
 	}
 
-	var testResults = make(map[string]model.TestSuiteResult)
-
-	fmt.Println()
-	if len(os.Args) < 2 {
-		log.Fatal("Usage: program <json-file>")
+	testSummary := TestSummary{
+		Results: make(map[string][]TestCollectionResult),
 	}
 
-	input, err := loadTestsFromFile(os.Args[1])
+	// for all files in folder ./testdata with suffix .json, load the tests and run them with all runners
+	files, err := os.ReadDir("./testdata")
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Error reading testdata directory: %v\n", err)
 	}
 
-	fmt.Println("Tests loaded, ready to evaluate.")
-	fmt.Println()
+	for _, file := range files {
 
-	for _, runner := range runners {
-		fmt.Printf("Running tests with %-25s ", runner.Name())
-
-		results, err := runner.RunTests(input.Tests)
+		testCollection, err := loadTestsFromFile(fmt.Sprintf("./testdata/%s", file.Name()))
 		if err != nil {
-			fmt.Println("ERROR")
-			fmt.Printf("Error running tests with %s: %v\n", runner.Name(), err)
+			log.Printf("Error loading tests from file %s: %v\n", file.Name(), err)
 			continue
 		}
-		fmt.Println("DONE")
 
-		testResults[runner.Name()] = results
+		for _, runner := range runners {
+			fmt.Printf("Testing %s tests with %-25s ", file.Name(), runner.Name())
+
+			results, err := runner.RunTests(testCollection)
+			if err != nil {
+				fmt.Println("ERROR")
+				fmt.Printf("Error running tests with %s: %v\n", runner.Name(), err)
+				continue
+			}
+			testSummary.Results[runner.Name()] = append(testSummary.Results[runner.Name()], results)
+			fmt.Println("DONE")
+
+		}
 	}
 
-	for runnerName, results := range testResults {
-		printResults(runnerName, results)
+	printSummary(testSummary)
+
+	fileName, err := saveResultsToFile(testSummary)
+	if err != nil {
+		log.Printf("Error saving results to file: %v\n", err)
+	} else {
+		fmt.Printf("Results saved to file: %s\n", fileName)
 	}
+
 }

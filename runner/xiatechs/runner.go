@@ -10,23 +10,23 @@ import (
 
 type XiatechsRunner struct{}
 
-func (r *XiatechsRunner) RunTests(tests []model.Test) (model.TestSuiteResult, error) {
+func (r *XiatechsRunner) RunTests(collection model.TestCollection) (model.TestCollectionResult, error) {
 	var results []model.TestResult
 
-	for _, test := range tests {
+	for _, test := range collection.Tests {
 		timestamp_start := time.Now()
 		e := jsonata.MustCompile(test.Expression)
 		res, err := e.Eval(test.JSON)
 		timestamp_elapsed := time.Since(timestamp_start).Microseconds()
 		passed := err == nil && res == test.Expected
 		results = append(results, model.TestResult{
-			Test:     test,
+			TestName: test.Name,
 			Passed:   passed,
 			Duration: timestamp_elapsed,
 		})
 	}
 
-	return model.TestSuiteResult{Results: results}, nil
+	return model.TestCollectionResult{File: collection.FileName, Results: results}, nil
 }
 
 func (r *XiatechsRunner) Name() string {

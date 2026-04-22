@@ -12,6 +12,32 @@
             },
             "expression" : "$sum(orders.(price*quantity))",
             "expected" : 135
+        },
+         {
+            "name" : "Test 2",
+            "description" : "Calculate the total value of the orders.",
+            "json" : {
+                "orders": [
+                    {"price": 10, "quantity": 3},
+                    {"price": 0.5, "quantity": 10},
+                    {"price": 100, "quantity": 1}
+                ]
+            },
+            "expression" : "$sum(orders.(price*quantity))",
+            "expected" : 135
+        },
+         {
+            "name" : "Test 3",
+            "description" : "Calculate the total value of the orders.",
+            "json" : {
+                "orders": [
+                    {"price": 10, "quantity": 3},
+                    {"price": 0.5, "quantity": 10},
+                    {"price": 100, "quantity": 1}
+                ]
+            },
+            "expression" : "$sum(orders.(price*quantity))",
+            "expected" : 135
         }
     ]
 }

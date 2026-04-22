@@ -1,0 +1,88 @@
+{
+  "results": {
+    "Blues JSONata Runner": [
+      {
+        "file": "./testdata/test_01.json",
+        "results": [
+          {
+            "name": "Test 1",
+            "duration": 91,
+            "passed": true
+          },
+          {
+            "name": "Test 2",
+            "duration": 11,
+            "passed": true
+          },
+          {
+            "name": "Test 3",
+            "duration": 9,
+            "passed": true
+          }
+        ]
+      },
+      {
+        "file": "./testdata/test_02.json",
+        "results": [
+          {
+            "name": "Test 1",
+            "duration": 12,
+            "passed": true
+          }
+        ]
+      },
+      {
+        "file": "./testdata/test_03.json",
+        "results": [
+          {
+            "name": "Test 1",
+            "duration": 13,
+            "passed": true
+          }
+        ]
+      }
+    ],
+    "Xiatechs JSONata Runner": [
+      {
+        "file": "./testdata/test_01.json",
+        "results": [
+          {
+            "name": "Test 1",
+            "duration": 227,
+            "passed": true
+          },
+          {
+            "name": "Test 2",
+            "duration": 22,
+            "passed": true
+          },
+          {
+            "name": "Test 3",
+            "duration": 20,
+            "passed": true
+          }
+        ]
+      },
+      {
+        "file": "./testdata/test_02.json",
+        "results": [
+          {
+            "name": "Test 1",
+            "duration": 28,
+            "passed": true
+          }
+        ]
+      },
+      {
+        "file": "./testdata/test_03.json",
+        "results": [
+          {
+            "name": "Test 1",
+            "duration": 28,
+            "passed": true
+          }
+        ]
+      }
+    ]
+  }
+}
