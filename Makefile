@@ -9,7 +9,7 @@ deps:
 build: deps
 	go build -o bin/jsonata-eval .
 
-run: build
+run: clean build
 	./bin/jsonata-eval testdata/test_01.json
 
 clean:
