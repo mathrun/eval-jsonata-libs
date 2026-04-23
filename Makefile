@@ -1,16 +1,14 @@
-.PHONY: all build run clean deps
+BIN := bin/eval
 
-all: run
+.PHONY: all build run clean
 
-deps:
-	go mod tidy
-	go mod download
+all: build
 
-build: deps
-	go build -o bin/jsonata-eval .
+build:
+	go build -o $(BIN) ./cmd
 
-run: clean build
-	./bin/jsonata-eval testdata/test_01.json
+run: build
+	./$(BIN) ./testdata
 
 clean:
-	rm -rf bin/
+	rm -rf bin results
