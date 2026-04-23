@@ -36,8 +36,6 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Error while running: %s\n", err)
 		os.Exit(2)
 	}
-
-	fmt.Fprintln(os.Stdout, "OK")
 }
 
 func run(testdir string, datadir string, filter string, verbose bool) error {
