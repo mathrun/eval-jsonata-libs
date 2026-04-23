@@ -39,11 +39,12 @@ func main() {
 }
 
 func run(testdir string, datadir string, filter string, verbose bool) error {
+	fmt.Println()
 	testData, err := loader.LoadTestData(testdir, datadir, filter)
 	if err != nil {
 		return err
 	}
-	fmt.Printf("Loaded %d test cases\n", len(testData.TestCases))
+	fmt.Printf("Loaded %d test cases\n\n", len(testData.TestCases))
 
 	runners := []model.Runner{
 		&recolabs.RecolabsRunner{},
@@ -53,8 +54,9 @@ func run(testdir string, datadir string, filter string, verbose bool) error {
 
 	allResults := make(map[string]*model.RunnerResult, len(runners))
 
+	fmt.Printf("Running tests...\n\n")
 	for _, r := range runners {
-		fmt.Printf("Running tests with %s runner\n", r.Name())
+
 		res, err := r.RunTests(&testData)
 		if err != nil {
 			return fmt.Errorf("running tests with %s: %s", r.Name(), err)
@@ -72,15 +74,22 @@ func run(testdir string, datadir string, filter string, verbose bool) error {
 				}
 			}
 		}
-		fmt.Printf("  %s: %d passed, %d failed, total duration: %dms\n",
-			r.Name(), res.Passed(), res.Failed(), res.TotalDuration()/1000)
+		totalDuration := res.TotalDuration()
+		if totalDuration > 1000 {
+			fmt.Printf("%10s: %4d passed, %4d failed, total duration: %d ms\n",
+				r.Name(), res.Passed(), res.Failed(), totalDuration/1000)
+		} else {
+			fmt.Printf("%10s: %4d passed, %4d failed, total duration: %d µs\n",
+				r.Name(), res.Passed(), res.Failed(), totalDuration)
+		}
 	}
 
 	path := report.ReportPath()
 	if err := report.WriteReport(path, allResults); err != nil {
 		return fmt.Errorf("writing report: %w", err)
 	}
-	fmt.Printf("Results written to %s\n", path)
+
+	fmt.Printf("\nResults written to %s\n\n", path)
 
 	return nil
 }
