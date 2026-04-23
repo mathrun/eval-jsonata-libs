@@ -1,11 +1,12 @@
 # eval-jsonata-libs
 
-Small test environment that loads JSON objects and JSONata expressions and tests numerous librararies for evaluation. 
+The aim of this project is to evaluate different jsonata libraries writtin in go. 
+
+## Test Data
+The folder ```./testdata``` was taken from [Recolabs gnata repository](https://github.com/RecoLabs/gnata/tree/main/testdata). However, every folder following the [structure of jsonata-js](https://github.com/jsonata-js/jsonata/tree/e6e436d44e2b04a7dd7b5f9c608a03837be07932/test/test-suite) could be used.
 
 ## Run
 
-To run ```make run```
+Build the program with ```make build```
 
-## Add Tests
-
-Currently it's the very first version. To add tests, simply add them to ```testdata/test_01.json```. 
+Run the tests with ```./bin/eval ./testdata``` (same as ```make run```) or change the test folder to your one. 
