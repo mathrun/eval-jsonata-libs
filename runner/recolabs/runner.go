@@ -15,6 +15,25 @@ import (
 type RecolabsRunner struct {
 	rawDatasets     map[string]json.RawMessage
 	decodedDatasets map[string]interface{}
+	gnataFuncs      map[string]gnata.CustomFunc
+	// evalCustom captures the gnata env in a closure to avoid naming its internal type.
+	evalCustom func(compiled *gnata.Expression, data any) (any, error)
+}
+
+func (r *RecolabsRunner) RegisterCustomFunction(name string, fn CustomFunc) error {
+	if r.gnataFuncs == nil {
+		r.gnataFuncs = make(map[string]gnata.CustomFunc)
+	}
+	r.gnataFuncs[name] = func(args []any, _ any) (any, error) {
+		iargs := make([]interface{}, len(args))
+		copy(iargs, args)
+		return fn(iargs)
+	}
+	env := gnata.NewCustomEnv(r.gnataFuncs)
+	r.evalCustom = func(compiled *gnata.Expression, data any) (any, error) {
+		return compiled.EvalWithCustomFuncs(context.Background(), data, env)
+	}
+	return nil
 }
 
 func (r *RecolabsRunner) Name() string {
@@ -48,7 +67,13 @@ func (r *RecolabsRunner) Eval(expr string, data interface{}, bindings map[string
 	if err != nil {
 		return nil, err
 	}
-	return compiled.EvalWithVars(context.Background(), data, bindings)
+	if len(bindings) > 0 {
+		return compiled.EvalWithVars(context.Background(), data, bindings)
+	}
+	if r.evalCustom != nil {
+		return r.evalCustom(compiled, data)
+	}
+	return compiled.Eval(context.Background(), data)
 }
 
 func (r *RecolabsRunner) RunTestCase(testCase *TestCase) *TestCaseResult {

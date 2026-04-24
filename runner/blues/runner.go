@@ -14,6 +14,19 @@ import (
 type BluesRunner struct {
 	rawDatasets     map[string]json.RawMessage
 	decodedDatasets map[string]interface{}
+	customExts      map[string]jsonata.Extension
+}
+
+func (r *BluesRunner) RegisterCustomFunction(name string, fn CustomFunc) error {
+	if r.customExts == nil {
+		r.customExts = make(map[string]jsonata.Extension)
+	}
+	r.customExts[name] = jsonata.Extension{
+		Func: func(args ...interface{}) (interface{}, error) {
+			return fn(args)
+		},
+	}
+	return nil
 }
 
 func (r *BluesRunner) Name() string {
@@ -56,6 +69,11 @@ func (r *BluesRunner) Eval(expr string, data interface{}, bindings map[string]in
 	compiled, err := jsonata.Compile(expr)
 	if err != nil {
 		return nil, err
+	}
+	if len(r.customExts) > 0 {
+		if err := compiled.RegisterExts(r.customExts); err != nil {
+			return nil, err
+		}
 	}
 	if len(bindings) > 0 {
 		if err := compiled.RegisterVars(bindings); err != nil {

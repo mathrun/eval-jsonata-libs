@@ -2,10 +2,15 @@ package model
 
 import "encoding/json"
 
+// CustomFunc is the common signature for user-defined functions that can be
+// registered with any runner via RegisterCustomFunction.
+type CustomFunc func(args []interface{}) (interface{}, error)
+
 type Runner interface {
 	RunTests(testData *TestData) (*RunnerResult, error)
 	RunTestCase(testCase *TestCase) *TestCaseResult
 	Eval(expr string, data interface{}, bindings map[string]interface{}) (interface{}, error)
+	RegisterCustomFunction(name string, fn CustomFunc) error
 	Name() string
 }
 

@@ -1,0 +1,6 @@
+{
+    "expr": "$decodeBitmask(5, [\"a\", null, \"c\"])",
+    "dataset": null,
+    "bindings": {},
+    "result": {"a": true, "c": true}
+}

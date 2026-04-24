@@ -1,0 +1,6 @@
+{
+    "expr": "$bitmask(5, 1)",
+    "dataset": null,
+    "bindings": {},
+    "result": false
+}
