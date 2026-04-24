@@ -1,0 +1,181 @@
+diff --color -Naur gnata-main/functions/string_funcs.go gnata-claude/functions/string_funcs.go
+--- gnata-main/functions/string_funcs.go	2026-03-30 20:09:41.000000000 +0200
++++ gnata-claude/functions/string_funcs.go	2026-04-23 11:38:57.512397426 +0200
+@@ -424,7 +424,7 @@
+ 	}
+ 	s, ok := args[0].(string)
+ 	if !ok {
+-		return nil, nil
++		return nil, &evaluator.JSONataError{Code: "T0410", Message: "$split: argument 1 must be a string"}
+ 	}
+ 	if len(args) < 2 {
+ 		return nil, &evaluator.JSONataError{Code: "D3006", Message: "$split: requires at least 2 arguments"}
+diff --color -Naur gnata-main/internal/evaluator/eval_function.go gnata-claude/internal/evaluator/eval_function.go
+--- gnata-main/internal/evaluator/eval_function.go	2026-03-30 20:09:41.000000000 +0200
++++ gnata-claude/internal/evaluator/eval_function.go	2026-04-23 11:38:53.474316182 +0200
+@@ -53,7 +53,7 @@
+ 	// HOF callbacks bypass this (they go through ApplyFunction instead).
+ 	if sb, ok := fn.(*SignedBuiltin); ok {
+ 		specs, _ := parser.ParseSig(sb.Sig)
+-		coerced, returnUndefined, sigErr := processCallArgs(specs, args)
++		coerced, returnUndefined, sigErr := processCallArgs(specs, args, input)
+ 		if sigErr != nil {
+ 			return nil, sigErr
+ 		}
+@@ -176,7 +176,7 @@
+ 		case *Lambda:
+ 			if f.Sig != "" {
+ 				specs, _ := parser.ParseSig(f.Sig)
+-				coerced, returnUndefined, err := processCallArgs(specs, args)
++				coerced, returnUndefined, err := processCallArgs(specs, args, focus)
+ 				if err != nil {
+ 					return nil, err
+ 				}
+diff --color -Naur gnata-main/internal/evaluator/signature.go gnata-claude/internal/evaluator/signature.go
+--- gnata-main/internal/evaluator/signature.go	2026-03-30 20:09:41.000000000 +0200
++++ gnata-claude/internal/evaluator/signature.go	2026-04-23 11:38:45.201149350 +0200
+@@ -21,9 +21,12 @@
+ //     T0410 on base-type mismatch or arity errors, and T0412 on array
+ //     content-type violations.
+ //
++//  4. Context injection: specs with InjectContext ('-') that have no
++//     corresponding arg receive focus as their value.
++//
+ // It returns (coercedArgs, returnUndefined, err).
+ // When returnUndefined is true the caller must return (nil, nil) immediately.
+-func processCallArgs(specs []parser.ParamSpec, args []any) (coercedArgs []any, returnUndefined bool, err error) {
++func processCallArgs(specs []parser.ParamSpec, args []any, focus any) (coercedArgs []any, returnUndefined bool, err error) {
+ 	coerced := slices.Clone(args)
+ 
+ 	for i, spec := range specs {
+@@ -53,7 +56,65 @@
+ 	if err := validateCallArgs(specs, coerced); err != nil {
+ 		return nil, false, err
+ 	}
+-	return coerced, false, nil
++	return buildFinalArgs(specs, coerced, focus), false, nil
++}
++
++// buildFinalArgs produces the final argument slice by replaying the same
++// traversal as validateCallArgs.  When an InjectContext spec has no
++// corresponding arg the focus value is appended in its place.
++// Extra args beyond all specs are appended unchanged.
++func buildFinalArgs(specs []parser.ParamSpec, args []any, focus any) []any {
++	result := make([]any, 0, len(args)+1)
++	si, ai := 0, 0
++
++	for si < len(specs) {
++		spec := specs[si]
++
++		if spec.Variadic {
++			requiredAfter := countRequiredAfterVariadic(specs, si)
++			limit := len(args) - requiredAfter
++			for ai < limit && sigArgMatchesTypes(args[ai], spec.Types) {
++				result = append(result, args[ai])
++				ai++
++			}
++			si++
++			continue
++		}
++
++		if ai >= len(args) {
++			if spec.InjectContext {
++				result = append(result, focus)
++			}
++			si++
++			continue
++		}
++
++		// Skip optional spec when the current arg doesn't match its type.
++		if spec.Optional && !sigArgMatchesTypes(args[ai], spec.Types) {
++			si++
++			continue
++		}
++
++		result = append(result, args[ai])
++		ai++
++		si++
++	}
++
++	// Append any remaining extra args.
++	result = append(result, args[ai:]...)
++	return result
++}
++
++// countRequiredAfterVariadic counts specs after position si that are neither
++// Optional nor InjectContext (and not themselves variadic).
++func countRequiredAfterVariadic(specs []parser.ParamSpec, si int) int {
++	n := 0
++	for k := si + 1; k < len(specs); k++ {
++		if !specs[k].Optional && !specs[k].InjectContext && !specs[k].Variadic {
++			n++
++		}
++	}
++	return n
+ }
+ 
+ // validateCallArgs checks that args satisfy the compiled parameter specs.
+@@ -67,8 +128,10 @@
+ 		spec := specs[si]
+ 
+ 		if spec.Variadic {
+-			// Variadic spec: validate every remaining arg against it.
+-			for ai < len(args) {
++			// Consume matching args, but reserve spots for required specs after.
++			requiredAfter := countRequiredAfterVariadic(specs, si)
++			limit := len(args) - requiredAfter
++			for ai < limit && sigArgMatchesTypes(args[ai], spec.Types) {
+ 				if err := validateOneCallArg(spec, args[ai], ai+1); err != nil {
+ 					return err
+ 				}
+@@ -80,7 +143,7 @@
+ 
+ 		if ai >= len(args) {
+ 			// No arg for this spec position.
+-			if !spec.Optional {
++			if !spec.Optional && !spec.InjectContext {
+ 				return &JSONataError{
+ 					Code:    "T0410",
+ 					Message: fmt.Sprintf("argument %d does not match function signature: too few arguments", ai+1),
+@@ -89,6 +152,13 @@
+ 			si++
+ 			continue
+ 		}
++
++		// Optional spec: silently skip when the current arg doesn't match the type,
++		// leaving the arg for the next spec to consume.
++		if spec.Optional && !sigArgMatchesTypes(args[ai], spec.Types) {
++			si++
++			continue
++		}
+ 
+ 		if err := validateOneCallArg(spec, args[ai], ai+1); err != nil {
+ 			return err
+diff --color -Naur gnata-main/internal/parser/signature.go gnata-claude/internal/parser/signature.go
+--- gnata-main/internal/parser/signature.go	2026-03-30 20:09:41.000000000 +0200
++++ gnata-claude/internal/parser/signature.go	2026-04-23 11:38:10.545444779 +0200
+@@ -7,10 +7,11 @@
+ 
+ // ParamSpec describes one parameter's type constraint parsed from a function signature.
+ type ParamSpec struct {
+-	Types       []byte // accepted base types: b n s l a o f j x
+-	ContentType byte   // for 'a': element type constraint; 0 = any
+-	Optional    bool   // ? — param may be omitted
+-	Variadic    bool   // + — repeats; must be the last spec
++	Types         []byte // accepted base types: b n s l a o f j x
++	ContentType   byte   // for 'a': element type constraint; 0 = any
++	Optional      bool   // ? — param may be omitted
++	Variadic      bool   // + — repeats; must be the last spec
++	InjectContext bool   // - — inject focus value when arg is absent
+ }
+ 
+ // ParseSig parses and validates a raw function-signature string (the content
+@@ -53,6 +54,8 @@
+ 				spec.Optional = true
+ 			case '+':
+ 				spec.Variadic = true
++			case '-':
++				spec.InjectContext = true
+ 			}
+ 			i++
+ 		}
