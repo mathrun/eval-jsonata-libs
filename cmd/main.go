@@ -54,34 +54,25 @@ func run(testdir string, datadir string, filter string, verbose bool) error {
 
 	allResults := make(map[string]*model.RunnerResult, len(runners))
 
-	fmt.Printf("Running tests...\n\n")
-	for _, r := range runners {
+	fmt.Printf("Running tests ...  0%%")
 
+	for i, r := range runners {
 		res, err := r.RunTests(&testData)
 		if err != nil {
+			fmt.Printf("\rRunning tests ... ERROR\n")
 			return fmt.Errorf("running tests with %s: %s", r.Name(), err)
 		}
 		allResults[r.Name()] = res
+		pct := (i + 1) * 100 / len(runners)
+		fmt.Printf("\rRunning tests ... %3d%%", pct)
+	}
+	fmt.Printf("\rRunning tests ... DONE   \n")
+	fmt.Println("")
 
-		if verbose {
-			for _, result := range res.Results {
-				if !result.Passed {
-					if result.Error != nil {
-						fmt.Printf("  FAIL %s: %s\n", result.TestCase.ID, result.Error)
-					} else {
-						fmt.Printf("  FAIL %s\n", result.TestCase.ID)
-					}
-				}
-			}
-		}
-		totalDuration := res.TotalDuration()
-		if totalDuration > 1000 {
-			fmt.Printf("%10s: %4d passed, %4d failed, total duration: %d ms\n",
-				r.Name(), res.Passed(), res.Failed(), totalDuration/1000)
-		} else {
-			fmt.Printf("%10s: %4d passed, %4d failed, total duration: %d µs\n",
-				r.Name(), res.Passed(), res.Failed(), totalDuration)
-		}
+	if verbose {
+		report.PromptDetailedReport(allResults)
+	} else {
+		report.PromptShortReport(allResults, verbose)
 	}
 
 	path := report.ReportPath()

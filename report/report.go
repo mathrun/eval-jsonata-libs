@@ -31,6 +31,41 @@ type runnerSummaryJSON struct {
 	Results  []testCaseResultJSON `json:"results"`
 }
 
+func PromptShortReport(results map[string]*model.RunnerResult, verbose bool) {
+	fmt.Printf("Summary:\n\n")
+	for name, res := range results {
+		totalDuration := res.TotalDuration()
+		if totalDuration > 1000 {
+			fmt.Printf("%10s: %4d passed, %4d failed, total duration: %d ms\n",
+				name, res.Passed(), res.Failed(), totalDuration/1000)
+		} else {
+			fmt.Printf("%10s: %4d passed, %4d failed, total duration: %d µs\n",
+				name, res.Passed(), res.Failed(), totalDuration)
+		}
+	}
+}
+
+func PromptDetailedReport(results map[string]*model.RunnerResult) {
+	fmt.Printf("\nDetailed Results:\n\n")
+	for name, res := range results {
+
+		totalDuration := res.TotalDuration()
+		if totalDuration > 1000 {
+			fmt.Printf("\n%10s: %4d passed, %4d failed, total duration: %d ms\n",
+				name, res.Passed(), res.Failed(), totalDuration/1000)
+		} else {
+			fmt.Printf("\n%10s: %4d passed, %4d failed, total duration: %d µs\n",
+				name, res.Passed(), res.Failed(), totalDuration)
+		}
+
+		for _, r := range res.Results {
+			if !r.Passed {
+				fmt.Printf("    - %s: FAILED : %v)\n", r.TestCase.ID, r.Error)
+			}
+		}
+	}
+}
+
 func WriteReport(path string, results map[string]*model.RunnerResult) error {
 	out := make(map[string]runnerSummaryJSON, len(results))
 
