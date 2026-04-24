@@ -1,0 +1,6 @@
+{
+    "expr": "$bitmask(5)",
+    "dataset": null,
+    "bindings": {},
+    "code": "bitmask: expected 2 arguments"
+}

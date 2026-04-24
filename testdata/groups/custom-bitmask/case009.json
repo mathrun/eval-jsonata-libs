@@ -1,0 +1,6 @@
+{
+    "expr": "$decodeBitmask(5)",
+    "dataset": null,
+    "bindings": {},
+    "code": "decodeBitmask: expected 2 arguments"
+}

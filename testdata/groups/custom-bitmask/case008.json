@@ -1,0 +1,6 @@
+{
+    "expr": "$encodeBitmask()",
+    "dataset": null,
+    "bindings": {},
+    "code": "encodeBitmask: expected 1 argument"
+}

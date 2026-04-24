@@ -1,0 +1,6 @@
+{
+    "expr": "$decodeBitmask(\"not-a-number\", [\"a\", \"b\"])",
+    "dataset": null,
+    "bindings": {},
+    "code": "decodeBitmask: first argument must be a number"
+}

@@ -1,0 +1,6 @@
+{
+    "expr": "$bitmask(\"not-a-number\", 0)",
+    "dataset": null,
+    "bindings": {},
+    "code": "bitmask: first argument must be a number"
+}
